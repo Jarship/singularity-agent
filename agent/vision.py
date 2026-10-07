@@ -100,6 +100,8 @@ def describe_state(
 
     # Encode as JPEG (smaller than PNG)
     import io
+    if img.mode == "RGBA":
+        img = img.convert("RGB")
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
