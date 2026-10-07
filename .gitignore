@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+screenshots/*.png
+screenshots/*.jpg
+screenshots/experiences.jsonl
+screenshots/policy.json
+screenshots/training_data.json
+screenshots/decision_log.jsonl
+*.egg-info/
+dist/
+build/
