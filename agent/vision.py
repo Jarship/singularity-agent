@@ -74,7 +74,7 @@ def _ollama_generate(
 def describe_state(
     screenshot_path: str,
     config: OllamaConfig | None = None,
-) -> dict:
+) -> tuple[dict, str]:
     """Send a game screenshot to the vision model and get a structured state description.
 
     Args:
@@ -82,7 +82,7 @@ def describe_state(
         config: OllamaConfig instance
 
     Returns:
-        Parsed dict with game state fields.
+        Tuple of (parsed state dict, raw model reasoning text).
     """
     if config is None:
         config = OllamaConfig()
@@ -121,17 +121,19 @@ def describe_state(
             if clean.startswith("json"):
                 clean = clean.split("\n", 1)[1]
             clean = clean.rsplit("```", 1)[0].strip()
-        return json.loads(clean)
+        state = json.loads(clean)
     except (json.JSONDecodeError, IndexError):
         # Return raw response if JSON parsing fails
-        return {"raw_response": response, "error": "json_parse_failed"}
+        state = {"raw_response": response, "error": "json_parse_failed"}
+
+    return state, response
 
 
 def decide_action(
     state_description: dict,
     available_actions: list[str],
     config: OllamaConfig | None = None,
-) -> str:
+) -> tuple[str, str]:
     """Given a game state description, decide the next action.
 
     Args:
@@ -140,7 +142,7 @@ def decide_action(
         config: OllamaConfig instance
 
     Returns:
-        Name of the chosen action (string).
+        Tuple of (chosen action name, raw model reasoning text).
     """
     if config is None:
         config = OllamaConfig()
@@ -176,4 +178,4 @@ def decide_action(
         config=config,
     )
 
-    return response.strip().split("\n")[0].strip()
+    return response.strip().split("\n")[0].strip(), response

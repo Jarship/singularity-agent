@@ -178,9 +178,10 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
             # Step 2: Describe game state via Ollama vision model
             logger.info("Describing game state...")
             try:
-                state = describe_state(screenshot_path, config=ollama_config)
+                state, state_reasoning = describe_state(screenshot_path, config=ollama_config)
                 last_description = state
                 logger.info(f"State: {json.dumps(state, indent=2)}")
+                logger.info(f"Vision reasoning:\n{state_reasoning}")
             except Exception as e:
                 logger.error(f"Failed to describe state: {e}")
                 time.sleep(decision_interval)
@@ -193,12 +194,10 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
             # Check if we should stop (detection critical)
             if prev_state and should_stop(state, prev_state):
                 logger.warning("Detection critical! Episode ending.")
-                # Override action to emergency pause
                 action = "emergency_pause"
                 keys = get_action_keys(action)
                 logger.info(f"Emergency: {action} → keys={keys}")
                 send_keys(keys, window_title=game_window, delay=key_press_delay)
-                # Log experience with penalty
                 exp = Experience(
                     cycle=cycle,
                     timestamp=time.time(),
@@ -228,8 +227,6 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
                         f"(avg_reward={policy_entry['avg_reward']:.2f}, "
                         f"tried {policy_entry['count']} times)"
                     )
-                    # Use policy suggestion but let the model override if it disagrees
-                    # Only use policy for actions that are safe under current detection
                     if detection in ("low", "medium") or best in SAFE_ACTIONS_UNDER_DETECTION:
                         action = best
 
@@ -237,20 +234,11 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
             if action is None:
                 for attempt in range(max_retries):
                     try:
-                        # Use improved prompt if we have experience data
-                        prompt_override = None
-                        if decision_prompt_override:
-                            # The decide_action function doesn't take a custom prompt,
-                            # so we use the vision model's describe_state output
-                            # and then use a custom decision call
-                            action = decide_action(
-                                state, available_actions, config=ollama_config
-                            )
-                        else:
-                            action = decide_action(
-                                state, available_actions, config=ollama_config
-                            )
+                        action, decision_reasoning = decide_action(
+                            state, available_actions, config=ollama_config
+                        )
                         logger.info(f"Chosen action: {action}")
+                        logger.info(f"Decision reasoning:\n{decision_reasoning}")
                         break
                     except Exception as e:
                         logger.warning(f"Decision attempt {attempt + 1} failed: {e}")
@@ -286,6 +274,8 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
                                 "action": action,
                                 "keys": keys,
                                 "state": state,
+                                "state_reasoning": state_reasoning,
+                                "decision_reasoning": decision_reasoning,
                                 "timestamp": time.time(),
                             }
                         )
@@ -414,11 +404,13 @@ def main():
             vision_model=ollama_cfg_data.get("vision_model", "qwen2.5vl"),
         )
 
-        state = describe_state(screenshot_path, config=ollama_config)
+        state, state_reasoning = describe_state(screenshot_path, config=ollama_config)
         logger.info(f"State: {json.dumps(state, indent=2)}")
+        logger.info(f"Vision reasoning:\n{state_reasoning}")
 
-        action = decide_action(state, get_all_actions(), config=ollama_config)
+        action, decision_reasoning = decide_action(state, get_all_actions(), config=ollama_config)
         logger.info(f"Action: {action}")
+        logger.info(f"Decision reasoning:\n{decision_reasoning}")
         keys = get_action_keys(action)
         logger.info(f"Keys to press: {keys}")
         send_keys(keys)
