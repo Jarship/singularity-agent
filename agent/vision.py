@@ -18,7 +18,7 @@ class OllamaConfig:
     host: str = "http://localhost:11434"
     vision_model: str = "qwen2.5vl:latest"
     decision_model: str = "qwen2.5vl:latest"
-    timeout: int = 120
+    timeout: int = 300
 
 
 def _ollama_generate(
@@ -92,7 +92,7 @@ def describe_state(
     from PIL import Image
 
     img = Image.open(screenshot_path)
-    max_width = 720
+    max_width = 480
     if img.width > max_width:
         ratio = max_width / img.width
         new_size = (max_width, int(img.height * ratio))
@@ -103,7 +103,7 @@ def describe_state(
     if img.mode == "RGBA":
         img = img.convert("RGB")
     buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
+    img.save(buf, format="JPEG", quality=70)
     image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
     prompt = (
