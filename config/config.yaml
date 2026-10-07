@@ -18,6 +18,8 @@ ollama:
   host: "http://localhost:11434"
   # Vision model for describing game screenshots
   vision_model: "qwen2.5vl:latest"
+  # Decision model for choosing actions (can be same as vision_model)
+  decision_model: "qwen2.5vl:latest"
   # Fallback: run on CPU if GPU memory is tight
   vision_model_cpu_fallback: true
 
