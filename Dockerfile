@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Python deps
 COPY agent/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install --no-cache-dir mss
 
 # Copy agent code
 COPY agent/ /app/agent/
