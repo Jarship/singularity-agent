@@ -87,11 +87,22 @@ def describe_state(
     if config is None:
         config = OllamaConfig()
 
-    # Read image as base64 for the API
+    # Read image, resize for Ollama (full screenshots are too large)
     import base64
+    from PIL import Image
 
-    with open(screenshot_path, "rb") as f:
-        image_b64 = base64.b64encode(f.read()).decode("utf-8")
+    img = Image.open(screenshot_path)
+    max_width = 720
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_size = (max_width, int(img.height * ratio))
+        img = img.resize(new_size, Image.LANCZOS)
+
+    # Encode as JPEG (smaller than PNG)
+    import io
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    image_b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
 
     prompt = (
         "You are analyzing a screenshot of the game Endgame: Singularity.\n"
