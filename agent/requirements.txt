@@ -1,0 +1,6 @@
+mss>=9.0.0
+Pillow>=10.0.0
+pyautogui>=0.9.54
+requests>=2.31.0
+pyyaml>=6.0
+numpy>=1.26.0

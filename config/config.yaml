@@ -1,0 +1,147 @@
+# Endgame: Singularity — AI Agent Configuration
+
+# Display
+display:
+  # X11 display (set automatically by Docker via $DISPLAY)
+  x11: ":0"
+  # Game window title (partial match for xdotool search)
+  game_window_title: "Endgame: Singularity"
+  # Screenshot region — set to null for full screen
+  # screenshot_region:
+  #   left: 0
+  #   top: 0
+  #   width: 1920
+  #   height: 1080
+
+# Ollama
+ollama:
+  host: "http://ollama:11434"
+  # Vision model for describing game screenshots
+  vision_model: "qwen2.5vl:2b"
+  # Fallback: run on CPU if GPU memory is tight
+  vision_model_cpu_fallback: true
+
+# Kev (decision model)
+kev:
+  # Kev server endpoint (Kev serves /v1/systemone)
+  # If running Kev locally, set base_url here.
+  # If using Ollama for decisions too, leave kev disabled and use ollama for both.
+  enabled: false
+  base_url: "http://localhost:8000"
+  model: "kev-0.8b"
+
+# Decision pipeline (used when Kev is disabled — Ollama handles both vision + decision)
+decision:
+  # How the agent decides what to do:
+  # "ollama_vision" — Ollama vision model describes screen, then Ollama text model decides
+  # "kev" — Kev makes structured decisions from screenshot (requires Kev server)
+  # "ollama_structured" — single Ollama call with vision + structured output
+  mode: "ollama_vision"
+
+  # Prompt template for the vision → description step
+  vision_prompt: >
+    You are analyzing a screenshot of the game Endgame: Singularity.
+    Describe the current game state in exactly these fields as JSON:
+    {
+      "screen": "map | base | research | dialog",
+      "speed": "0|1|2|3|4",
+      "detection_level": "low | medium | high | critical",
+      "resources": {"money": <int>, "cpu": <int>, "research_points": <int>},
+      "available_actions": ["list", "of", "actions", "visible", "on", "screen"],
+      "bases_count": <int>,
+      "current_research": "<name or null>",
+      "detection_warning": "<text or null>"
+    }
+    Be concise. Only output valid JSON.
+
+  # Prompt template for the decision step
+  decision_prompt: >
+    Given this Endgame: Singularity game state, what is the best next action?
+    Available actions: {available_actions}
+    Detection level: {detection_level}
+    Speed: {speed}
+
+    Respond with ONE action from this list:
+    {action_options}
+
+    Only output the action name. No explanation.
+
+# Action mapping (high-level action → key sequence)
+actions:
+  speed_max:
+    keys: ["4"]
+    description: "Set game speed to maximum"
+  speed_pause:
+    keys: ["0"]
+    description: "Pause the game"
+  speed_slow:
+    keys: ["1"]
+    description: "Set game speed to slow"
+  confirm:
+    keys: ["Return"]
+    description: "Confirm current choice"
+  cancel:
+    keys: ["Escape"]
+    description: "Cancel / leave current dialog"
+  research_next:
+    keys: ["Tab"]
+    description: "Navigate to next research option"
+  research_confirm:
+    keys: ["Return"]
+    description: "Confirm research selection"
+  build_base:
+    keys: ["B"]
+    description: "Open build menu for base"
+  abort_mission:
+    keys: ["Escape", "Escape"]
+    description: "Abort current mission / return to map"
+  speed_toggle:
+    keys: ["Space"]
+    description: "Toggle pause / unpause"
+
+# Timing
+timing:
+  # Seconds to wait between decisions (game must be in a natural pause)
+  decision_interval: 2.0
+  # Seconds to wait after sending a key press before the next action
+  key_press_delay: 0.3
+  # Maximum retries for a single decision before giving up
+  max_retries: 3
+  # Screenshot capture interval (seconds) — how often to re-evaluate
+  screenshot_interval: 5.0
+
+# Logging
+logging:
+  level: "INFO"
+  screenshots_dir: "/app/screenshots"
+  log_decisions: true
+
+# Training configuration
+training:
+  enabled: true
+  buffer_size: 10000
+  policy_path: "screenshots/policy.json"
+  # Export training data after N experiences
+  export_after: 100
+  # Retrain policy after N new experiences
+  retrain_after: 50
+
+# Reward weights — tune these to shape agent behavior
+reward:
+  # Detection penalties (most important signal)
+  detection_critical_penalty: -20.0
+  detection_high_penalty: -10.0
+  detection_medium_penalty: -2.0
+  detection_low_reward: 1.0
+  # Progression rewards
+  research_completed_reward: 5.0
+  base_built_reward: 3.0
+  money_earned_reward: 0.01
+  # Speed rewards
+  speed_max_reward: 0.5
+  speed_pause_penalty: -0.1
+  # Survival bonus
+  survived_cycle_reward: 0.5
+  # Detection change
+  detection_increased_penalty: -3.0
+  detection_decreased_reward: 2.0

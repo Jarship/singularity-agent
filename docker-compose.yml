@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    runtime: nvidia
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
+    volumes:
+      # X11 display sharing — lets the container see the game window on the host
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Game install directory (mount the cloned repo or installed game)
+      - ./game:/app/game
+      # Screenshots for debugging/visualization
+      - ./screenshots:/app/screenshots
+      # Persist Ollama models across container restarts
+      - ollama_data:/root/.ollama
+    environment:
+      - DISPLAY=${DISPLAY}
+      - OLLAMA_HOST=http://ollama:11434
+      - NVIDIA_VISIBLE_DEVICES=all
+    depends_on:
+      - ollama
+    stdin_open: true
+    tty: true
+
+volumes:
+  ollama_data:
