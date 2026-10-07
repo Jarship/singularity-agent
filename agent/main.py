@@ -8,6 +8,8 @@ Orchestrates the pipeline:
 import argparse
 import json
 import logging
+import signal
+import sys
 import time
 from pathlib import Path
 
@@ -37,6 +39,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Global shutdown flag for signal handling
+_shutdown_requested = False
+
+
+def _signal_handler(signum, frame):
+    global _shutdown_requested
+    _shutdown_requested = True
+    logger.info("Shutdown signal received, stopping after current cycle...")
+
+
+signal.signal(signal.SIGINT, _signal_handler)
+signal.signal(signal.SIGTERM, _signal_handler)
 
 
 def load_config(config_path: str = "config/config.yaml") -> dict:
@@ -131,6 +146,10 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
         while True:
             if max_cycles is not None and cycle >= max_cycles:
                 logger.info(f"Reached max cycles ({max_cycles}). Stopping.")
+                break
+
+            if _shutdown_requested:
+                logger.info("Shutdown requested. Stopping.")
                 break
 
             cycle += 1
@@ -392,7 +411,7 @@ def main():
         ollama_cfg_data = config.get("ollama", {})
         ollama_config = OllamaConfig(
             host=ollama_cfg_data.get("host", "http://localhost:11434"),
-            vision_model=ollama_cfg_data.get("vision_model", "qwen2.5vl:2b"),
+            vision_model=ollama_cfg_data.get("vision_model", "qwen2.5vl"),
         )
 
         state = describe_state(screenshot_path, config=ollama_config)

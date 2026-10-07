@@ -16,9 +16,9 @@ import requests
 @dataclass
 class OllamaConfig:
     host: str = "http://localhost:11434"
-    vision_model: str = "qwen2.5vl:2b"
-    decision_model: str = "qwen2.5vl:2b"
-    timeout: int = 120
+    vision_model: str = "qwen2.5vl"
+    decision_model: str = "qwen2.5vl"
+    timeout: int = 30
 
 
 def _ollama_generate(
