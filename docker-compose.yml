@@ -8,21 +8,5 @@ services:
     stdin_open: true
     tty: true
 
-  agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      # Screenshots for debugging/visualization
-      - ./screenshots:/app/screenshots
-      # Persist Ollama models across container restarts
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    depends_on:
-      - ollama
-    stdin_open: true
-    tty: true
-
 volumes:
   ollama_data:
