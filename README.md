@@ -34,99 +34,66 @@ A screenshot-based AI agent that plays **Endgame: Singularity** using a local Ol
 
 ## Prerequisites
 
-### Host Machine
+### macOS (M2 MacBook Pro)
 
 | Requirement | Details |
 |---|---|
-| **OS** | Linux (X11) or macOS |
-| **GPU** | NVIDIA (GTX 1650 Ti or better) for Windows; M2 Mac works for both |
-| **Docker** | Docker Engine + Docker Compose |
-| **NVIDIA Container Toolkit** | Required for GPU passthrough on Linux |
-| **Endgame: Singularity** | Installed on the host (Python 3.9+, pygame, numpy) |
+| **Docker Desktop** | For Ollama (Metal GPU acceleration) |
+| **Python 3.9+** | For the agent (runs natively, not in Docker) |
+| **Endgame: Singularity** | Installed on the host |
+| **Screen Recording permission** | Required for `pyautogui` to control the game |
 
-### Install NVIDIA Container Toolkit (Linux)
+### Linux (NVIDIA GPU)
 
-```bash
-# Add the NVIDIA repository
-curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-  sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+| Requirement | Details |
+|---|---|
+| **Docker** + NVIDIA Container Toolkit | For Ollama + agent in Docker |
+| **Python 3.9+** | For the game itself |
+| **Endgame: Singularity** | Installed on the host |
 
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-  sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-  sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+### Windows (WSL2 + NVIDIA)
 
-sudo apt-get update
-sudo apt-get install -y nvidia-container-toolkit
-sudo systemctl restart docker
-```
+| Requirement | Details |
+|---|---|
+| **Docker Desktop** + WSL2 | For Ollama + agent |
+| **NVIDIA Container Toolkit** | For GPU passthrough |
+| **Python 3.9+** | For the game itself |
+| **Endgame: Singularity** | Installed on the host |
 
 ### Install Endgame: Singularity on the Host
 
 ```bash
-# Clone the game
 git clone https://github.com/singularity/singularity.git
 cd singularity
-
-# Install dependencies
 pip install pygame numpy polib
-
-# Run the game once to verify it works
 python3 -m singularity
 ```
 
-## Setup
+Set the game to **Borderless Windowed** mode in the in-game options.
 
-### 1. Clone this repo
-
-```bash
-git clone <this-repo>
-cd singularity-agent
-```
-
-### 2. Pull Ollama models
-
-Start Ollama first, then pull the models:
+### Install Ollama (Docker)
 
 ```bash
-docker compose up ollama
-
-# In another terminal, pull the models
+docker compose up ollama -d
 docker exec -it singularity-agent-ollama-1 ollama pull qwen2.5vl:2b
-
-# Optional: pull a larger vision model if you have more VRAM
-# docker exec -it singularity-agent-ollama-1 ollama pull qwen2.5vl:7b
 ```
 
-### 3. Configure
+### Install the Agent (macOS — native, not Docker)
 
-Edit `config/config.yaml` to match your setup:
-
-- `display.game_window_title` — the window title of the game (default: `"Endgame: Singularity"`)
-- `ollama.host` — Ollama URL (default: `http://ollama:11434` for Docker networking)
-- `ollama.vision_model` — model name (default: `qwen2.5vl:2b`)
-- `decision.mode` — `"ollama_vision"` (uses Ollama for both vision + decision) or `"kev"` (requires Kev server)
-
-### 4. Run the game on the host
+On macOS, the agent runs natively on the host (Docker is only used for Ollama):
 
 ```bash
-cd /path/to/singularity
-python3 -m singularity
+pip install mss Pillow pyautogui requests pyyaml numpy
 ```
 
-**Important:** Set the game to **Borderless Windowed** mode in the in-game options. This ensures the game window is a normal X11 window that the agent can target.
-
-### 5. Run the agent
+Then run:
 
 ```bash
-# Full agent loop (runs until Ctrl+C)
-docker compose up agent
-
-# Single decision cycle (for testing)
-docker compose up agent --entrypoint "python -m agent.main --once"
-
-# Limit to N cycles
-docker compose up agent --entrypoint "python -m agent.main --max-cycles 50"
+python -m agent.main --once   # test single cycle
+python -m agent.main          # full loop
 ```
+
+On macOS, `pyautogui` handles both screen capture and key injection. You'll need to grant **Screen Recording** and **Accessibility** permissions to your terminal app in System Settings → Privacy & Security.
 
 ## File Structure
 

@@ -1,6 +1,8 @@
 FROM python:3.12-slim
 
-# System deps: X11 display, xdotool for key injection, mss for screenshots
+# System deps for Linux/X11 environments only.
+# On macOS, the agent runs natively (no Docker needed for the agent).
+# xdotool and x11-utils require X11 and are only needed on Linux.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
