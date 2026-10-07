@@ -1,4 +1,4 @@
-FROM python:3.12-bookworm-slim
+FROM python:3.12-slim
 
 # System deps: X11 display, xdotool for key injection, mss for screenshots
 RUN apt-get update && apt-get install -y --no-install-recommends \
