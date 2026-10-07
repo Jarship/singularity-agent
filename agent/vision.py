@@ -16,8 +16,8 @@ import requests
 @dataclass
 class OllamaConfig:
     host: str = "http://localhost:11434"
-    vision_model: str = "qwen2.5vl:latest"
-    decision_model: str = "qwen2.5vl:latest"
+    vision_model: str | None = None
+    decision_model: str = "qwen2.5:latest"
     timeout: int = 300
 
 
@@ -71,11 +71,114 @@ def _ollama_generate(
         raise TimeoutError(f"Ollama request timed out after {config.timeout}s")
 
 
+def _analyze_screenshot_pixels(screenshot_path: str) -> dict:
+    """Analyze a screenshot's pixels to extract basic game state.
+
+    Uses color and position heuristics to detect:
+    - Detection level (red warning pixels in center regions)
+    - Speed indicator (bright UI elements)
+    - Resource presence (gold/copper colors)
+    - Screen type (map vs base vs research vs dialog)
+
+    Returns a state dict suitable for the text-only decision model.
+    """
+    from PIL import Image
+    import numpy as np
+
+    img = Image.open(screenshot_path)
+    img_rgb = img.convert("RGB")
+    arr = np.array(img_rgb)
+
+    h, w = arr.shape[:2]
+
+    # --- Detection level: look for red pixels in center region ---
+    center = arr[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4]
+    red_mask = (center[:, :, 0] > 180) & (center[:, :, 1] < 80) & (center[:, :, 2] < 80)
+    red_ratio = red_mask.sum() / center.shape[0] / center.shape[1]
+
+    if red_ratio > 0.05:
+        detection_level = "critical"
+    elif red_ratio > 0.02:
+        detection_level = "high"
+    elif red_ratio > 0.005:
+        detection_level = "medium"
+    else:
+        detection_level = "low"
+
+    # --- Speed: look for bright pixels in bottom-center (speed indicator) ---
+    bottom_center = arr[3 * h // 4 :, w // 4 : 3 * w // 4]
+    bright_mask = (
+        (bottom_center[:, :, 0] > 200)
+        & (bottom_center[:, :, 1] > 200)
+        & (bottom_center[:, :, 2] > 200)
+    )
+    bright_ratio = bright_mask.sum() / bottom_center.shape[0] / bottom_center.shape[1]
+
+    if bright_ratio > 0.1:
+        speed = "4"
+    elif bright_ratio > 0.05:
+        speed = "3"
+    elif bright_ratio > 0.02:
+        speed = "2"
+    elif bright_ratio > 0.005:
+        speed = "1"
+    else:
+        speed = "0"
+
+    # --- Resources: look for gold/copper in top-right ---
+    top_right = arr[: h // 4, 3 * w // 4 :]
+    gold_mask = (
+        (top_right[:, :, 0] > 180)
+        & (top_right[:, :, 1] > 140)
+        & (top_right[:, :, 2] < 100)
+    )
+    has_resources = gold_mask.sum() > 100
+
+    # --- Screen type: detect dialog by looking for dark overlay ---
+    dark_pixels = (arr.mean(axis=2) < 50).sum()
+    total_pixels = arr.shape[0] * arr.shape[1]
+    dark_ratio = dark_pixels / total_pixels
+
+    if dark_ratio > 0.3:
+        screen = "dialog"
+    elif has_resources and detection_level == "low":
+        screen = "base"
+    elif detection_level in ("medium", "high", "critical"):
+        screen = "research"
+    else:
+        screen = "map"
+
+    # --- Available actions (basic set based on screen type) ---
+    base_actions = ["speed_max", "speed_pause", "speed_slow", "confirm", "cancel"]
+    if screen == "base":
+        base_actions += ["build_base", "research_next"]
+    elif screen == "research":
+        base_actions += ["research_next", "research_confirm"]
+
+    return {
+        "screen": screen,
+        "speed": speed,
+        "detection_level": detection_level,
+        "resources": {
+            "money": 100 if has_resources else 0,
+            "cpu": 50 if has_resources else 0,
+            "research_points": 25 if has_resources else 0,
+        },
+        "available_actions": base_actions,
+        "bases_count": 1 if screen == "base" else 0,
+        "current_research": None,
+        "detection_warning": "red_alert" if detection_level in ("critical", "high") else None,
+    }
+
+
 def describe_state(
     screenshot_path: str,
     config: OllamaConfig | None = None,
 ) -> tuple[dict, str]:
     """Send a game screenshot to the vision model and get a structured state description.
+
+    When vision_model is null, returns a minimal default state without
+    sending the image to Ollama (text-only mode).
 
     Args:
         screenshot_path: path to the screenshot PNG file
@@ -86,6 +189,12 @@ def describe_state(
     """
     if config is None:
         config = OllamaConfig()
+
+    # Text-only mode: analyze screenshot pixels for basic state, then decide
+    if config.vision_model is None:
+        logger.info("Vision model disabled — using pixel analysis + text-only mode")
+        state = _analyze_screenshot_pixels(screenshot_path)
+        return state, "text-only mode: pixel analysis (no vision model)"
 
     # Read image, resize for Ollama (full screenshots are too large)
     import base64
