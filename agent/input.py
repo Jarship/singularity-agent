@@ -19,14 +19,20 @@ class InputConfig:
 
 
 def _find_window_id(window_title: str) -> str | None:
-    """Find the X11 window ID for the game window."""
-    result = subprocess.run(
-        ["xdotool", "search", "--name", window_title],
-        capture_output=True,
-        text=True,
-    )
-    window_ids = result.stdout.strip().split("\n")
-    return window_ids[0] if window_ids and window_ids[0] else None
+    """Find the X11 window ID for the game window.
+
+    Returns None if xdotool is unavailable (macOS) or window not found.
+    """
+    try:
+        result = subprocess.run(
+            ["xdotool", "search", "--name", window_title],
+            capture_output=True,
+            text=True,
+        )
+        window_ids = result.stdout.strip().split("\n")
+        return window_ids[0] if window_ids and window_ids[0] else None
+    except FileNotFoundError:
+        return None
 
 
 def send_keys(
