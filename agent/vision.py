@@ -7,10 +7,13 @@ Provides two functions:
 """
 
 import json
+import logging
 import time
 from dataclasses import dataclass
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
