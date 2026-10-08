@@ -161,15 +161,14 @@ def run_agent_loop(config: dict, max_cycles: int | None = None):
             img = capture_game_window(
                 window_title=game_window,
                 output_path=screenshot_path,
+                require_window=True,
             )
 
             if img is None:
-                logger.error("Game window not found! Is Endgame: Singularity running?")
-                logger.info("Trying full-screen capture instead...")
-                img = capture_full_screen(output_path=screenshot_path)
-
-            if img is None:
-                logger.error("Failed to capture any screenshot. Retrying in 5s...")
+                logger.warning(
+                    "Game window not found! Is Endgame: Singularity running "
+                    "and in the foreground? Retrying in 5s..."
+                )
                 time.sleep(5)
                 continue
 

@@ -103,11 +103,17 @@ def _capture_linux(
 def capture_game_window(
     window_title: str = "Endgame: Singularity",
     output_path: str | None = None,
+    require_window: bool = False,
 ) -> "Image.Image | None":
     """Capture the game window by searching for it on screen.
 
     On macOS: uses AppleScript to find window position, then captures that region.
     On Linux: uses xdotool to find window geometry, then captures that region.
+
+    Args:
+        window_title: partial title of the game window
+        output_path: where to save the screenshot
+        require_window: if True, return None when window not found (no fullscreen fallback)
 
     Returns:
         PIL Image of the game window, or None if window not found.
@@ -118,6 +124,8 @@ def capture_game_window(
         region = _find_window_linux(window_title)
 
     if region is None:
+        if require_window:
+            return None
         print(f"[capture] Window '{window_title}' not found, capturing full screen")
         return capture_screen(output_path=output_path)
 
